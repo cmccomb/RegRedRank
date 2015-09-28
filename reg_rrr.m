@@ -1,17 +1,13 @@
 function [beta, mse_train, mse_test] = reg_rrr(X, Y, t, L, K)
 
-    % Constants
+    % Defin constants
     r = size(X, 2)+1;
     s = size(Y, 2);
 
-    % Solve simple rrr for initial guess.
-    x0 = rrr(X, Y, 'rank', t);
-    x0 = reshape(x0, 1, length(x0(:)));
-
-    X = [ones(size(X, 1), 1) X];
-
     % Split data for testing, etc
     cv = make_folds(size(X,1), K, size(X,1));
+
+    X = [ones(size(X, 1), 1) X];
 
     all_mse_test = ones(1,K);
     all_mse_train = ones(1,K);
@@ -27,15 +23,18 @@ function [beta, mse_train, mse_test] = reg_rrr(X, Y, t, L, K)
         options.MaxFunEvals = 10000;
         options.Display = 'off';
 
+        % Solve simple rrr for initial guess.
+        x0 = rrr(X(cv(i).train, 2:end), Y(cv(i).train, :), 'rank', t);
+        x0 = reshape(x0, 1, length(x0(:)));
+        
         % Perform optimization
         x = fmincon(@(x) objective(x, X_train, Y_train, L), x0, [], [], [], [], -Inf*ones(1,39), Inf*ones(1,39), @(x)constraints(x, t), options);
 
         % Compute the errors
         all_mse_train(i) = objective(x, X_train, Y_train, 0);
         all_mse_test(i) = objective(x, X_test, Y_test, 0);
-
     end
-    
+        
     beta = reshape(x, s, r);
     mse_train = mean(all_mse_train);
     mse_test = mean(all_mse_test);
@@ -43,7 +42,8 @@ function [beta, mse_train, mse_test] = reg_rrr(X, Y, t, L, K)
         function mse = objective(C, X, Y, L)
             C = reshape(C, s, r);
             Y_pred =  X*C';
-            er = (Y - Y_pred).^2;
+            er = (Y - Y_pred).^2;   
+            C = C(:, 2:end);
             mse = mean(er(:)) + L*sum(abs(C(:)));
         end
 
